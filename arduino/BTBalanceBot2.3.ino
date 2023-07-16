@@ -42,7 +42,7 @@ float pki = 0.001;
 
 float tukp1 = 6.2; // 4
 float tukd1 = 1.5; // 0.03
-float tuki1 = 0.0; 
+float tuki1 = 0.0;
 float tukp2 = 4;
 float tukd2 = 8;
 
@@ -79,7 +79,7 @@ double looptime = 0;
 void setup() {
   Serial.begin(115200);
   Serial1.begin(230400);
-  
+
   if (!IMU.begin()) {
     Serial.println("Failed to initialize IMU!");
     while (1);
@@ -88,10 +88,10 @@ void setup() {
   pinMode(encodeA2, INPUT_PULLUP);
   pinMode(encodeB1, INPUT_PULLUP);
   pinMode(encodeB2, INPUT_PULLUP);
-  
+
   attachInterrupt(digitalPinToInterrupt(encodeA1), encodeA, CHANGE);
   attachInterrupt(digitalPinToInterrupt(encodeB1), encodeB, CHANGE);
-  
+
 }
 
 void encodeA(){
@@ -118,7 +118,6 @@ void get_angle(float g_x, float a_y, float* x_angle, double looptime){
   x_gyro = -g_x;
 
   *x_angle = (0.97)*(*x_angle + (x_gyro * (looptime / 1000))) + (0.03)*(y_acc);
-  //sprintf(tmp_str, "y_acc: %.2f, x_gyro: %.2f, angle: %.2f",y_acc, x_gyro, x_angle);
 }
 
 void receive_vals(int* drive, float* turn){
@@ -150,7 +149,6 @@ void receive_vals(int* drive, float* turn){
     failsafeTimer = millis();
     Dout = buff[0];
     Tout = buff[1];
-    //sprintf(tmp_str, "drive: %3d, turn: %3d", buff[0], buff[1]);
     for(uint8_t i = IPF - 1; i > 0; i--){
       pointsT[i] = pointsT[i-1];
       pointsD[i] = pointsD[i-1];
@@ -163,9 +161,7 @@ void receive_vals(int* drive, float* turn){
     Dout /= IPF;
     *drive = MAX_SPEED * (Dout / MAX_INPUT);
     *turn = Tout / MAX_INPUT;
-    //sprintf(tmp_str, "Dout: %3.2f, Tout: %3.2f, drive: %3.2f, turn: %3.2f", Dout, Tout, *drive, *turn);
   }
-  //sprintf(tmp_str, "Dout: %2.3f, Tout: %2.3f, i: %d",Dout, Tout, i);
 }
 
 void safe_start(){
@@ -209,7 +205,7 @@ void stand_still(){
     wanted_posA = motorA;
     wanted_posB = motorB;
   }
-  
+
 }
 
 void get_speedandpos(){
@@ -225,7 +221,7 @@ void get_speedandpos(){
   ABrelation = motorA - motorB;
   speedABRel = ABrelation - last_ABrel;
   last_ABrel = ABrelation;
-  
+
 }
 
 int16_t speed_to_pwm(float wanted, float actual){
@@ -236,7 +232,7 @@ int16_t speed_to_pwm(float wanted, float actual){
   cum_error += error;
   int out = (error * skp) + (error_rate * skd) + (cum_error * ski);
   last_error = error;
-  
+
   if(reset){
     cum_error = 0;
     reset = 0;
@@ -248,21 +244,16 @@ int16_t speed_to_pwm(float wanted, float actual){
   else if(cum_error > MAX_PWM){
     cum_error = MAX_PWM;
   }
-  
+
   if(out < -MAX_PWM){
     out = -MAX_PWM;
   }
   else if(out > MAX_PWM){
     out = MAX_PWM;
   }
-  //sprintf(tmp_str, "Angle: %3.2f, Wspeed: %4.2f, wanted: %3.2f, actual: %3d, speedA: %3d, speedB %3d, error: %3.2f, pwmA %4d, pwmB: %4d",x_angle, wantedSpeed, wanted, actual, speedA, speedB, error, pwmA, pwmB);
-  //sprintf(tmp_str, "Wspeed: %4.2f, speed %4.2d", wanted, actual);
-  //sprintf(tmp_str, "error: %.2f, rate: %.2f, cum: %.2f", (error * skp), (error_rate * skd), (cum_error * ski));
-  //Serial.println(tmp_str);
   balancePWM = out;
   pwmA = out;
   pwmB = out;
-  //sprintf(tmp_str, "wanted: %.2f, speedB %3d, error: %3.2f, pwmA %4d", wanted, speedB, error, pwmA);
 }
 
 
@@ -270,7 +261,6 @@ void assign_turn(int (*turn)(float, float), float turnspeed, float desiredSpeed,
   int turn_pwm = (*turn)(turnspeed, g_z);
   turn_pwm *= 1 - abs(MAX_TURN_CUT * (botspeed / MAX_SPEED));
   float speed_rate = desiredSpeed / MAX_SPEED;
-  //float balance_rate = balancePWM / 255.0;
   float balance_rate = x_angle / MAX_ANGLE;
   float used_rate = 0;
   if(abs(speed_rate) >= abs(balance_rate)){
@@ -281,43 +271,8 @@ void assign_turn(int (*turn)(float, float), float turnspeed, float desiredSpeed,
   }
   pwmA += (turn_pwm + (abs(turn_pwm) * used_rate));
   pwmB -= (turn_pwm - (abs(turn_pwm) * used_rate));
-   
-  //sprintf(tmp_str, "turnspeed: %4.2f, speed_rate %4.2f, fakeA %4.2f, fakeB %4.2f, brate: %2.2f", turnspeed, speed_rate, (turn_pwm + (abs(turn_pwm) * used_rate)), -(turn_pwm - (abs(turn_pwm) * used_rate)), used_rate);
-  //sprintf(tmp_str, "balance_rate: %4.2f, speed_rate %4.2f, brate: %2.2f", balance_rate, speed_rate, used_rate);
 }
 
-/*
-int turn(float turnspeed, float g_z){
-  static float errorT, errorRateT, lastErrorT;
-  int Tout;
-   if(turnspeed != 0){
-    wantedRelAB = ABrelation;
-    Tout = (turnspeed * MAX_TURN) + (g_z * tukd1);
-    if(Tout > MAX_TURN){
-      Tout = MAX_TURN;
-    }
-    else if(Tout < -MAX_TURN){
-      Tout = -MAX_TURN;
-    }
-  }
-  else{
-    errorT = wantedRelAB - ABrelation;
-    errorRateT = errorT - lastErrorT;
-    Tout = (errorT * tukp2) + (errorRateT * tukd2); 
-    //sprintf(tmp_str,"out: %.2f", Tout);
-    lastErrorT = errorT;
-  
-    if(Tout > MAX_TURN){
-      Tout = MAX_TURN;
-    }
-    else if(Tout < -MAX_TURN){
-      Tout = -MAX_TURN;
-    }
-  }
-  //sprintf(tmp_str, "errorT: %3.2f, out: %4d, TS: %.2f", errorT, Tout, turnspeed);
-  return Tout;
-}
-*/
 int turn(float turnspeed, float g_z){
   static float errorT, errorRateT, lastErrorT, cumError = 0;
   float wanted_turn = turnspeed * MAX_TURNSPEED;
@@ -327,7 +282,7 @@ int turn(float turnspeed, float g_z){
     errorT = wanted_turn - speedABRel;
     errorRateT = errorT - lastErrorT;
     cumError += errorT;
-    
+
     Tout = (errorT * tukp1) + (errorRateT * tukd1) + (cumError * tuki1);
     if(Tout > MAX_TURN){
       Tout = MAX_TURN;
@@ -341,10 +296,9 @@ int turn(float turnspeed, float g_z){
     cumError = 0;
     errorT = wantedRelAB - ABrelation;
     errorRateT = errorT - lastErrorT;
-    Tout = (errorT * tukp2) + (errorRateT * tukd2); 
-    //sprintf(tmp_str,"out: %.2f", Tout);
+    Tout = (errorT * tukp2) + (errorRateT * tukd2);
     lastErrorT = errorT;
-  
+
     if(Tout > MAX_TURN){
       Tout = MAX_TURN;
     }
@@ -381,10 +335,6 @@ float positionPD(){
     out += outs[i];
   }
   out /= POSF;
- 
-  //sprintf(tmp_str, "set_point: %f, error: %d, errorR: %f", set_point, error, (error_rate * pkd));
-  //sprintf(tmp_str, "error: %f, error_rate: %f", error * pkp, error_rate * pkd, (error * pkp) + (error_rate * pkd));
-  
 
   if(out < -MAX_SPEED){
     out = -MAX_SPEED;
@@ -394,9 +344,6 @@ float positionPD(){
   }
   last_error = error;
   travelSpeed = out;
-  //sprintf(tmp_str, "sp: %.2f, out: %.2f", set_point, out);
-  //Serial.println(tmp_str);
-  
 }
 
 int travelPD(){
@@ -405,33 +352,16 @@ int travelPD(){
   error = travelSpeed - botspeed;
   error_rate = last_error - error;
   cum_error += error;
-  /*if(((botspeed) < 0) != is_neg){
-    cum_error = 0;
-    is_neg = !is_neg;
-  }*/
-
   if(!balance){
     cum_error = 0;
   }
-  /*if(cum_error > MAX_SETPOINT){
-    cum_error = MAX_SETPOINT;
-  }
-  else if(cum_error < -MAX_SETPOINT){
-    cum_error = -MAX_SETPOINT;
-  }*/
-
   float out = (error * tkp) + (error_rate * tkd) + (cum_error * tki);
-  
   if(out > MAX_SETPOINT){
     out = MAX_SETPOINT;
   }
   else if(out < -MAX_SETPOINT){
     out = -MAX_SETPOINT;
   }
-  //sprintf(tmp_str, "error: %3.2f, error_rate: %3.2f, sp: %2.2f", error, (error_rate * tkd), set_point);
-  //sprintf(tmp_str, "Angle: %f, wanted: %4d, actual: %4d, error_rate: %2.2f",x_angle, (travelSpeedA + travelSpeedB), (speedA + speedB), (error_rate * tkd));
-  //sprintf(tmp_str, "error: %f, SP: %f", error, set_point);
-  //Serial.println(tmp_str);
   last_error = error;
   return out;
 }
@@ -445,7 +375,7 @@ float setpoint_filter(float wanted_point){
   }
   points[0] = wanted_point;
   return out / (float)SPF;
-  
+
 }
 
 int balancePID(float angle){
@@ -455,26 +385,22 @@ int balancePID(float angle){
   error = angle - set_point;
   cumError += error;
   errorRate = (error - lastError);
-  
+
   out = (error * bkp) + (cumError * bki) + (errorRate * bkd);
-  //sprintf(tmp_str,"errorR: %.2f, error: %.2f, angle: %2.2f, ",  (errorRate * bkd),  (error * bkp), angle);
   lastError = error;
-  
+
   if((angle < 0) != is_neg){
     cumError = 0;
     is_neg = !is_neg;
   }
-  
+
   if(cumError > 100){
     cumError = 100;
   }
   else if(cumError < -100){
     cumError = -100;
   }
-  
-  //wantedSpeed = out;
   balancePWM = out;
-  //sprintf(tmp_str,"WantedA: %5.2f, error: %.2f, cum: %.2f, rate: %.2f, setpoint: %.2f",  wantedSpeed, (error * bkp), (cumError * bki), (errorRate * bkd), set_point);
 }
 
 
@@ -500,9 +426,7 @@ void loop() {
       balancePID(x_angle);
       pwmA = balancePWM;
       pwmB = balancePWM;
-      //speed_to_pwm(wantedSpeed, botspeed);
       assign_turn(turn, turnspeed, desiredSpeed, g_z);
-      //sprintf(tmp_str, " pwmA: %4d, pwmB: %4d, wantedRel: %4d, Rel: %4d, motorA: %6d, motorB: %6d",pwmA, pwmB, wantedRelAB, ABrelation, motorA, motorB);
     }
     if(desiredSpeed != 0){
       wanted_posA = motorA;
@@ -510,10 +434,10 @@ void loop() {
       travelSpeed = desiredSpeed;
     }
     else{
-      positionPD(); 
+      positionPD();
     }
     set_point = setpoint_filter(travelPD());
-    
+
 
     if(pwmA > 0){
       digitalWrite(inA1, HIGH);
@@ -537,21 +461,7 @@ void loop() {
     }
     measure_time = millis() - milli;
     //sprintf(tmp_str, "looptime: %f, time: %f", looptime, measure_time);
-    //sprintf(tmp_str, "A: %d, B: %d", digitalRead(encodeB1), digitalRead(encodeB2));
-    //sprintf(tmp_str, "A: %2d, B: %2d, Angle: %2.2f", motorA, motorB, x_angle);
-    //sprintf(tmp_str, "set_point: %f", set_point);
-    //sprintf(tmp_str, "PWMA: %4d, PWMB: %4d, Angle %.2f", pwmA, pwmB, x_angle);
-    //sprintf(tmp_str, "X: %.2f, Y: %.2f, Z: %.2f", g_x, g_y, g_z);
-    //sprintf(tmp_str, "Wanted: %5d, actual: %5d, pwmA %3d, pwmB %3d, angle: %2.2f", wantedRelAB, ABrelation, pwmA, pwmB, x_angle);
-    //sprintf(tmp_str, "Angle %f", x_angle);
-    //sprintf(tmp_str, "Angle %d, T: %.2f",(int)x_angle, looptime);
-    //sprintf(tmp_str, "botspeed: %3.2f, speedA: %3d, speedB %3d, travelspeed: %.2f",botspeed, speedA, speedB, travelSpeed);
-    //sprintf(tmp_str, "Angle: %f, desiredS: %d, speed: %d, PWM: %d, set_point: %f, pos: %d, wantedpos: %d",x_angle, desiredSpeed, botspeed, pwm, set_point, posit, wanted_pos);
-    //sprintf(tmp_str, "dspeed: %4d, turn: %2.2f",desiredSpeed, turnspeed);
-    //sprintf(tmp_str, "Angle: %3.2f, Wspeed: %3.2f, speed %.2f, pwma: %4.2d",x_angle, wantedSpeed, botspeed, pwmA);
-    //sprintf(tmp_str, "Angle %f, SP %3.2f", x_angle, set_point);
-    //sprintf(tmp_str, "relspeed: %3d",speedABRel);
-    Serial.println(tmp_str);
+    //Serial.println(tmp_str);
   }
 
 }
