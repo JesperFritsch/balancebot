@@ -17,19 +17,20 @@
 #define IPF 4
 #define RATE_FAC 10
 #define MAX_PWM 255
-#define MAX_SETPOINT 50
-#define MAX_ANGLE 70
-#define MAX_SPEED 13
+#define MAX_SETPOINT 45
+#define MAX_ANGLE 75 //70
+#define MAX_SPEED 12
 #define MAX_TURN 150
-#define MAX_INPUT 11
+#define MAX_INPUT 100
 #define MAX_TURNSPEED 25
+#define MAX_TURN_CUT 0.35
 
 float a_x, a_y, a_z, g_x, g_y, g_z; // variables for accelerometer raw data
 float x_angle = 0;
 
 float bkp = 20; //6
 float bki = 0;
-float bkd = 85; //17
+float bkd = 65; //17
 
 float skp = 5; //3.5
 float skd = 0; //0
@@ -39,11 +40,11 @@ float pkp = 0.00003; //0.00005
 float pkd = 0.17; //0.85
 float pki = 0.001;
 
-float tukp1 = 4; // 4
-float tukd1 = 0.035; // 0.03
-float tuki1 = 0.2; 
-float tukp2 = 1;
-float tukd2 = 1;
+float tukp1 = 6.2; // 4
+float tukd1 = 1.5; // 0.03
+float tuki1 = 0.0; 
+float tukp2 = 4;
+float tukd2 = 8;
 
 float tkp = 1.7; //1.2
 float tkd = 1.5; //0
@@ -161,12 +162,7 @@ void receive_vals(int* drive, float* turn){
     Tout /= IPF;
     Dout /= IPF;
     *drive = MAX_SPEED * (Dout / MAX_INPUT);
-    if(Tout > 0){
-      *turn = ((Tout*Tout) / MAX_INPUT) / MAX_INPUT;
-    }
-    else{
-      *turn = -((Tout*Tout) / MAX_INPUT) / MAX_INPUT;
-    }
+    *turn = Tout / MAX_INPUT;
     //sprintf(tmp_str, "Dout: %3.2f, Tout: %3.2f, drive: %3.2f, turn: %3.2f", Dout, Tout, *drive, *turn);
   }
   //sprintf(tmp_str, "Dout: %2.3f, Tout: %2.3f, i: %d",Dout, Tout, i);
@@ -272,6 +268,7 @@ int16_t speed_to_pwm(float wanted, float actual){
 
 void assign_turn(int (*turn)(float, float), float turnspeed, float desiredSpeed, float g_z){
   int turn_pwm = (*turn)(turnspeed, g_z);
+  turn_pwm *= 1 - abs(MAX_TURN_CUT * (botspeed / MAX_SPEED));
   float speed_rate = desiredSpeed / MAX_SPEED;
   //float balance_rate = balancePWM / 255.0;
   float balance_rate = x_angle / MAX_ANGLE;
@@ -286,7 +283,7 @@ void assign_turn(int (*turn)(float, float), float turnspeed, float desiredSpeed,
   pwmB -= (turn_pwm - (abs(turn_pwm) * used_rate));
    
   //sprintf(tmp_str, "turnspeed: %4.2f, speed_rate %4.2f, fakeA %4.2f, fakeB %4.2f, brate: %2.2f", turnspeed, speed_rate, (turn_pwm + (abs(turn_pwm) * used_rate)), -(turn_pwm - (abs(turn_pwm) * used_rate)), used_rate);
-  sprintf(tmp_str, "balance_rate: %4.2f, speed_rate %4.2f, brate: %2.2f", balance_rate, speed_rate, used_rate);
+  //sprintf(tmp_str, "balance_rate: %4.2f, speed_rate %4.2f, brate: %2.2f", balance_rate, speed_rate, used_rate);
 }
 
 /*
